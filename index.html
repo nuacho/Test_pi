@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Happy New Year</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(ellipse at top, #1b2a5e 0%, #0a1030 60%, #050818 100%);
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    #snow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .snowflake {
+      position: absolute;
+      top: -10vh;
+      user-select: none;
+      pointer-events: none;
+      animation: fall linear infinite;
+      text-shadow: 0 0 8px currentColor;
+    }
+
+    @keyframes fall {
+      0% {
+        transform: translate3d(0, -10vh, 0) rotate(0deg);
+        opacity: 0;
+      }
+      10% {
+        opacity: 1;
+      }
+      90% {
+        opacity: 1;
+      }
+      100% {
+        transform: translate3d(var(--drift), 110vh, 0) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+    .content {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 9vw, 8rem);
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #fff;
+      background: linear-gradient(90deg, #ff4e50, #ffd700, #4ade80, #38bdf8, #c084fc, #ff4e50);
+      background-size: 300% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shine 6s linear infinite;
+      filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.35));
+    }
+
+    @keyframes shine {
+      to { background-position: 300% center; }
+    }
+
+    .subtitle {
+      margin-top: 16px;
+      font-size: clamp(1rem, 2.5vw, 1.6rem);
+      color: #dbeafe;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      opacity: 0.85;
+    }
+
+    .glow {
+      position: absolute;
+      width: 60vmin;
+      height: 60vmin;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.12), transparent 70%);
+      z-index: 0;
+      animation: pulse 5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.15); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div id="snow"></div>
+
+  <div class="content">
+    <h1>Happy New Year</h1>
+    <div class="subtitle">2027</div>
+  </div>
+
+  <script>
+    const snow = document.getElementById('snow');
+    const symbols = ['❄', '❅', '❆', '✻', '✼', '✵'];
+    const colors = ['#ff6b6b', '#ffd93d', '#6bcB77', '#4d96ff', '#c084fc', '#ff9ff3', '#00d2d3', '#ffffff'];
+    const count = 90;
+
+    function createFlake() {
+      const flake = document.createElement('span');
+      flake.className = 'snowflake';
+      flake.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+      flake.style.left = Math.random() * 100 + 'vw';
+      flake.style.color = colors[Math.floor(Math.random() * colors.length)];
+      flake.style.fontSize = 10 + Math.random() * 26 + 'px';
+      flake.style.setProperty('--drift', (Math.random() * 200 - 100) + 'px');
+      flake.style.animationDuration = 6 + Math.random() * 10 + 's';
+      flake.style.animationDelay = -(Math.random() * 16) + 's';
+      snow.appendChild(flake);
+    }
+
+    for (let i = 0; i < count; i++) createFlake();
+  </script>
+</body>
+</html>
