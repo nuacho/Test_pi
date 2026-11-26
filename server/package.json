@@ -1,0 +1,9 @@
+{
+  "name": "todo-list-server",
+  "version": "1.0.0",
+  "description": "HTTP-сервер для раздачи собранного todo-list приложения",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
