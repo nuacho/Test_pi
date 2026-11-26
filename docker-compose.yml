@@ -1,0 +1,23 @@
+# Todo List — продакшн-запуск через nginx-proxy.
+# Сеть nginx-proxy должна существовать: docker network create nginx-proxy
+# Маршрутизация и TLS — через nginx-proxy (VIRTUAL_HOST) + acme-companion (LETSENCRYPT_*).
+
+services:
+  app:
+    build: .
+    image: todo-app:latest
+    container_name: todo-app
+    environment:
+      VIRTUAL_HOST: nuacho.hopto.org
+      VIRTUAL_PORT: 3000
+      LETSENCRYPT_HOST: nuacho.hopto.org
+      LETSENCRYPT_EMAIL: svborisov@gmail.com
+    ports:
+      - "3000:3000"   # прямой доступ по http://IP:3000 (не обязателен для работы через nginx-proxy)
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: nginx-proxy

@@ -20,7 +20,6 @@ USER="${DEPLOY_USER:-root}"
 KEY="${DEPLOY_KEY:-$HOME/.ssh/id_ed25519}"
 APP_DIR="${DEPLOY_APP_DIR:-/opt/todo-app}"     # куда распаковывать на сервере
 SERVICE="${DEPLOY_SERVICE:-todo-app}"          # имя systemd-сервиса
-IMAGE="${DEPLOY_IMAGE:-todo-app:latest}"
 HTTP_PORT="${DEPLOY_HTTP_PORT:-3000}"          # порт приложения на сервере
 
 SSH_OPTS=(-i "$KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new -o BatchMode=yes)
@@ -33,7 +32,7 @@ fail() { printf '\033[1;31m[deploy] ОШИБКА:\033[0m %s\n' "$*" >&2; exit 1;
 # ----- 0. Проверки -----
 cd "$(dirname "$0")"
 
-for f in Dockerfile package.json package-lock.json vite.config.js index.html server/server.js; do
+for f in Dockerfile docker-compose.yml package.json package-lock.json vite.config.js index.html server/server.js; do
   [ -f "$f" ] || fail "не найден $f — запускайте скрипт из корня проекта"
 done
 
@@ -44,7 +43,7 @@ log "Проверка связи с $HOST..."
 TARBALL="$(mktemp -u /tmp/todo-app-XXXX).tar.gz"
 log "Упаковка исходников в $(basename "$TARBALL")..."
 tar -czf "$TARBALL" \
-  Dockerfile .dockerignore \
+  Dockerfile .dockerignore docker-compose.yml \
   package.json package-lock.json vite.config.js index.html \
   src server
 
@@ -53,21 +52,20 @@ log "Загрузка на сервер..."
 "${SCP_CMD[@]}" "$TARBALL" "$USER@$HOST:/tmp/todo-app-deploy.tar.gz"
 rm -f "$TARBALL"
 
-# ----- 3. Сборка и запуск на сервере -----
+# ----- 3. Сборка и запуск на сервере (docker compose) -----
 log "Сборка образа и перезапуск сервиса на сервере..."
 "${SSH_CMD[@]}" bash -s <<REMOTE
 set -euo pipefail
 
 APP_DIR='$APP_DIR'
 SERVICE='$SERVICE'
-IMAGE='$IMAGE'
 HTTP_PORT='$HTTP_PORT'
 
-# Docker: ставим, если отсутствует
+# Docker + compose: ставим, если отсутствуют
 if ! command -v docker >/dev/null 2>&1; then
   echo "[deploy] Docker не найден — устанавливаю..."
   apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io >/dev/null
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io docker-compose-v2 >/dev/null
   systemctl enable --now docker
 fi
 
@@ -75,11 +73,15 @@ mkdir -p "\$APP_DIR"
 tar -xzf /tmp/todo-app-deploy.tar.gz -C "\$APP_DIR"
 rm -f /tmp/todo-app-deploy.tar.gz
 
-# systemd-сервис: создаём, если его ещё нет
-if [ ! -f "/etc/systemd/system/\$SERVICE.service" ]; then
-  cat > "/etc/systemd/system/\$SERVICE.service" <<UNIT
+# общая сеть для nginx-proxy
+if ! docker network inspect nginx-proxy >/dev/null 2>&1; then
+  docker network create nginx-proxy
+fi
+
+# systemd-сервис: создаём/обновляем
+cat > "\$APP_DIR/\$SERVICE.service" <<UNIT
 [Unit]
-Description=Todo List app (Docker)
+Description=Todo List app (Docker Compose)
 Requires=docker.service
 After=docker.service network-online.target
 
@@ -87,19 +89,24 @@ After=docker.service network-online.target
 Type=simple
 Restart=always
 RestartSec=5
-ExecStartPre=-/usr/bin/docker rm -f \$SERVICE
-ExecStart=/usr/bin/docker run --rm --name \$SERVICE -p \${HTTP_PORT}:3000 \$IMAGE
-ExecStop=/usr/bin/docker stop \$SERVICE
-TimeoutStopSec=30
+WorkingDirectory=\$APP_DIR
+ExecStartPre=-/usr/bin/docker compose -f \$APP_DIR/docker-compose.yml down --remove-orphans
+ExecStart=/usr/bin/docker compose -f \$APP_DIR/docker-compose.yml up --build --abort-on-container-exit
+ExecStop=/usr/bin/docker compose -f \$APP_DIR/docker-compose.yml down --remove-orphans
+TimeoutStopSec=60
 
 [Install]
 WantedBy=multi-user.target
 UNIT
-  systemctl daemon-reload
-  systemctl enable "\$SERVICE"
-fi
+systemctl daemon-reload
 
-docker build --pull -q -t "\$IMAGE" "\$APP_DIR"
+if ! systemctl cat "\$SERVICE" >/dev/null 2>&1; then
+  systemctl link "\$APP_DIR/\$SERVICE.service"
+fi
+systemctl enable "\$SERVICE"
+
+# в compose перезапуск осуществляется через сервис
+docker compose -f "\$APP_DIR/docker-compose.yml" build --pull -q
 systemctl restart "\$SERVICE"
 
 # ждём, пока приложение начнёт отвечать
