@@ -27,7 +27,7 @@ const {
       class="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-400/25 bg-slate-900/85 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md"
     >
       <TodoHeader :total="totalCount" />
-
+        
       <TodoForm v-model="draft" @add="add()" />
 
       <TodoList
